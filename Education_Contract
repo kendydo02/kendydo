@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract Education {
+    struct Course {
+        string name;
+        string description;
+        uint256 cost;
+        bool isAvailable;
+    }
+
+    struct Student {
+        string name;
+        mapping(uint256 => uint8) grades;
+    }
+
+    mapping(uint256 => Course) public courses;
+    mapping(address => Student) public students;
+    mapping(uint256 => address[]) public courseEnrollments;
+    address public owner;
+    uint256 public nextCourseId;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the contract owner");
+        _;
+    }
+
+    event CourseCreated(uint256 courseId, string name, string description, uint256 cost);
+    event StudentEnrolled(address student, uint256 courseId);
+    event GradeAssigned(address student, uint256 courseId, uint8 grade);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function createCourse(string memory _name, string memory _description, uint256 _cost) external onlyOwner {
+        courses[nextCourseId] = Course(_name, _description, _cost, true);
+        emit CourseCreated(nextCourseId, _name, _description, _cost);
+        nextCourseId++;
+    }
+
+    function enrollInCourse(uint256 _courseId, string memory _studentName) external payable {
+        require(courses[_courseId].isAvailable, "Course not available");
+        require(msg.value >= courses[_courseId].cost, "Insufficient funds");
+
+        students[msg.sender].name = _studentName;
+        courseEnrollments[_courseId].push(msg.sender);
+
+        emit StudentEnrolled(msg.sender, _courseId);
+    }
+
+    function assignGrade(address _student, uint256 _courseId, uint8 _grade) external onlyOwner {
+        require(courses[_courseId].isAvailable, "Course not available");
+        require(_grade <= 100, "Invalid grade");
+
+        students[_student].grades[_courseId] = _grade;
+
+        emit GradeAssigned(_student, _courseId, _grade);
+    }
+
+    function getGrade(address _student, uint256 _courseId) external view returns (uint8) {
+        return students[_student].grades[_courseId];
+    }
+
+    function withdrawFunds() external onlyOwner {
+        payable(owner).transfer(address(this).balance);
+    }
+
+    function changeCourseAvailability(uint256 _courseId, bool _isAvailable) external onlyOwner {
+        courses[_courseId].isAvailable = _isAvailable;
+    }
+}
